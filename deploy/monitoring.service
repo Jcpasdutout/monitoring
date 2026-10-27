@@ -1,0 +1,24 @@
+[Unit]
+Description=Tableau de bord de monitoring
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=monitoring
+Group=monitoring
+WorkingDirectory=/opt/monitoring
+EnvironmentFile=-/etc/monitoring/secrets.env
+ExecStart=/usr/bin/python3 /opt/monitoring/server.py /etc/monitoring/config.toml
+Restart=on-failure
+RestartSec=10
+# Nécessaire pour les sondes ping (ICMP)
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/monitoring
+
+[Install]
+WantedBy=multi-user.target

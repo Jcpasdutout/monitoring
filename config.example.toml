@@ -1,0 +1,7 @@
+# Réglages du serveur (facultatif : sans ce fichier, les valeurs ci-dessous s'appliquent).
+# Les sondes ne se configurent plus ici : ajoutez-les depuis la page « Sondes » de l'interface.
+
+[server]
+host = "127.0.0.1"       # 0.0.0.0 pour y accéder depuis les autres machines du réseau
+port = 8080
+# data_dir = "data"      # dossier de la base SQLite (sondes, mots de passe, historique)

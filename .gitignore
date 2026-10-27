@@ -1,0 +1,6 @@
+config.toml
+secrets.env
+.env
+data/
+__pycache__/
+web/node_modules/

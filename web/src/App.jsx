@@ -1,0 +1,138 @@
+import { useCallback, useEffect, useState } from 'react'
+import { Activity, LayoutDashboard, ListChecks, Moon, RefreshCw, Sun } from 'lucide-react'
+import { api } from './api.js'
+import Account from './Account.jsx'
+import Dashboard, { filterProbes, normalizeFilter, PROBLEMS } from './Dashboard.jsx'
+import Login from './Login.jsx'
+import Probes from './Probes.jsx'
+import Settings from './Settings.jsx'
+import { usePersistentState } from './util.js'
+
+const REFRESH_MS = 10000
+
+function useHashRoute() {
+  const [route, setRoute] = useState(() => window.location.hash.slice(1) || '/')
+  useEffect(() => {
+    const on = () => setRoute(window.location.hash.slice(1) || '/')
+    window.addEventListener('hashchange', on)
+    return () => window.removeEventListener('hashchange', on)
+  }, [])
+  return route
+}
+
+export default function App() {
+  const route = useHashRoute()
+  const [types, setTypes] = useState([])
+  const [probes, setProbes] = useState(null)
+  const [error, setError] = useState(null)
+  const [toast, setToast] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [auth, setAuth] = useState(null) // { setup_needed, user }
+  const [savedFilter, setFilter] = usePersistentState('monitoring.filter', [])
+  const filter = normalizeFilter(savedFilter)
+  const [view, setView] = usePersistentState('monitoring.view', 'cards')
+  const [autoHide, setAutoHide] = usePersistentState('monitoring.autoHide', true)
+  const [theme, setTheme] = usePersistentState('monitoring.theme', document.documentElement.dataset.theme || 'light')
+
+  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+
+  const loadAuth = useCallback(() => api.auth().then(setAuth).catch(() => {}), [])
+  useEffect(() => {
+    loadAuth()
+    window.addEventListener('monitoring:unauthorized', loadAuth)
+    return () => window.removeEventListener('monitoring:unauthorized', loadAuth)
+  }, [loadAuth])
+
+  const load = useCallback(async () => {
+    try {
+      setProbes(await api.probes())
+      setError(null)
+    } catch (e) {
+      setError(e.message === 'Failed to fetch' ? 'Serveur injoignable' : e.message)
+    }
+  }, [])
+
+  useEffect(() => {
+    api.types().then(setTypes).catch(() => {})
+    load()
+    const t = setInterval(load, REFRESH_MS)
+    return () => clearInterval(t)
+  }, [load])
+
+  const notify = useCallback((message, kind = 'info') => {
+    setToast({ message, kind, id: Date.now() })
+  }, [])
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  const refreshAll = async () => {
+    setRefreshing(true)
+    await api.refresh().catch(() => {})
+    setTimeout(async () => { await load(); setRefreshing(false) }, 3000)
+  }
+
+  const unread = (probes || [])
+    .filter((p) => p.type === 'imap' && p.enabled && p.last?.status !== 'error')
+    .reduce((a, p) => a + (p.last?.value || 0), 0)
+  useEffect(() => {
+    document.title = unread ? `(${unread}) Monitoring` : 'Monitoring'
+  }, [unread])
+
+  const page = route.startsWith('/sondes') ? 'probes' : 'dashboard'
+  const problemCount = probes ? filterProbes(probes, PROBLEMS).length : 0
+  const worst = !probes ? 'ok'
+    : filterProbes(probes, ['error']).length ? 'error'
+    : filterProbes(probes, ['warning']).length ? 'warning' : 'ok'
+
+  return (
+    <div className="app">
+      {/* Bandeau masqué (option) : une fine bande reste visible et le déplie au survol (ou au toucher). */}
+      <div className={`topbar-zone ${autoHide ? 'autohide' : 'pinned'}`} tabIndex={-1}>
+        {autoHide && <div className={`topbar-strip strip-${error ? 'error' : worst}`} />}
+      <header className="topbar">
+        <div className="brand"><span className="logo"><Activity size={18} /></span>Monitoring</div>
+        <nav className="tabs">
+          <a href="#/" title="Tableau de bord" className={page === 'dashboard' ? 'active' : ''}><LayoutDashboard size={16} /><span>Tableau de bord</span></a>
+          <a href="#/sondes" title="Sondes" className={page === 'probes' ? 'active' : ''}><ListChecks size={16} /><span>Sondes</span></a>
+        </nav>
+        <div className="topbar-right">
+          {error && <span className="conn-error">{error}</span>}
+          <button className="btn btn-ghost" onClick={refreshAll} disabled={refreshing} title="Relancer toutes les sondes">
+            <RefreshCw size={16} className={refreshing ? 'spin' : ''} /><span className="hide-sm">Actualiser</span>
+          </button>
+          <button className="icon-btn icon-btn-bordered" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}>
+            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          </button>
+          <Settings filter={filter} setFilter={setFilter} total={probes?.length || 0} problemCount={problemCount}
+            view={view} setView={setView} autoHide={autoHide} setAutoHide={setAutoHide} />
+          {auth?.user && (
+            <Account user={auth.user} notify={notify}
+              onLogout={async () => { await loadAuth(); await load(); notify('Déconnecté') }} />
+          )}
+        </div>
+      </header>
+      </div>
+
+      <main className="content">
+        {probes === null ? (
+          <div className="empty">{error || 'Chargement…'}</div>
+        ) : page === 'dashboard' ? (
+          <Dashboard probes={probes} types={types} reload={load} notify={notify} filter={filter} setFilter={setFilter} view={view} loggedIn={!!auth?.user} />
+        ) : !auth ? (
+          <div className="empty">Chargement…</div>
+        ) : !auth.user ? (
+          <Login setupNeeded={auth.setup_needed}
+            onDone={async (user) => { setAuth({ setup_needed: false, user }); await load() }} />
+        ) : (
+          <Probes probes={probes} types={types} reload={load} notify={notify} />
+        )}
+      </main>
+
+      {toast && <div key={toast.id} className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+    </div>
+  )
+}
