@@ -22,7 +22,7 @@ from store import Store
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 COOKIE = "monitoring_session"
 
 
@@ -430,6 +430,20 @@ def import_legacy(store, config):
             print(f"Sonde {i + 1} de config.toml ignorée : {e}")
 
 
+def provision_token(store, path, name):
+    """Garde dans un fichier un jeton d'accès valide (utilisé par l'add-on Home Assistant).
+
+    Le jeton est recréé si le fichier manque ou si le jeton a été supprimé dans l'interface.
+    """
+    path = Path(path)
+    if path.exists() and store.token_client(path.read_text(encoding="utf-8").strip()):
+        return
+    token = store.create_token(name[:60])["token"]
+    path.write_text(token, encoding="utf-8")
+    path.chmod(0o600)
+    print(f"Jeton d'accès « {name} » créé dans {path}")
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     cfg_path = Path(args[0]) if args else BASE / "config.toml"
@@ -451,6 +465,9 @@ def main():
     if "--reset-admin" in sys.argv:
         store.delete_users()
         print("Compte administrateur supprimé : ouvrez la page Sondes pour en créer un nouveau.")
+    if os.environ.get("MONITORING_TOKEN_FILE"):
+        provision_token(store, os.environ["MONITORING_TOKEN_FILE"],
+                        os.environ.get("MONITORING_TOKEN_NAME") or "Home Assistant")
 
     if not (STATIC / "index.html").exists():
         sys.exit("Interface absente : le dossier static/ doit contenir index.html (voir README).")
