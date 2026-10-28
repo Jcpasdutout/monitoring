@@ -118,7 +118,8 @@ export default function App() {
             <NextThemeIcon size={17} />
           </button>
           <Settings filter={filter} setFilter={setFilter} total={probes?.length || 0} problemCount={problemCount}
-            view={view} setView={setView} autoHide={autoHide} setAutoHide={EMBEDDED ? null : setAutoHide} />
+            view={view} setView={setView} autoHide={autoHide} setAutoHide={EMBEDDED ? null : setAutoHide}
+            version={auth?.version} addonVersion={auth?.addon_version} />
           {auth?.user && (
             <Account user={auth.user} notify={notify}
               onLogout={async () => { await loadAuth(); await load(); notify('Déconnecté') }} />

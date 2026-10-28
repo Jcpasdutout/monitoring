@@ -22,7 +22,9 @@ from store import Store
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.5.1"
+VERSION = "2.6.0"
+# Version de l'add-on Home Assistant, transmise par son Dockerfile (vide hors add-on).
+ADDON_VERSION = os.environ.get("MONITORING_ADDON_VERSION", "")
 COOKIE = "monitoring_session"
 
 
@@ -178,7 +180,8 @@ def make_handler(store, monitor):
         return {"setup_needed": not store.has_users(),
                 "user": h.user["login"] if h.user else None,
                 "api_token": h.api["name"] if h.api else None,
-                "instance_id": store.instance_id(), "version": VERSION}
+                "instance_id": store.instance_id(), "version": VERSION,
+                "addon_version": ADDON_VERSION or None}
 
     @route("POST", "/api/auth/setup")
     def auth_setup(h):
