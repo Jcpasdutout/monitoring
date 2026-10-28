@@ -64,3 +64,66 @@ export function formatValue(v) {
   if (v === null || v === undefined) return '—'
   return Number.isInteger(v) ? v.toLocaleString('fr-FR') : v.toLocaleString('fr-FR', { maximumFractionDigits: 1 })
 }
+
+/** Thèmes proposés par le bouton, dans l'ordre du cycle. « Transparent » n'a de sens que dans HA. */
+export const THEMES = EMBEDDED ? ['light', 'dark', 'transparent'] : ['light', 'dark']
+
+/** Lit le fond du thème Home Assistant (page parente, même origine via l'Ingress) : clair ou sombre ? */
+function hostAppearance() {
+  const fallback = { theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', scheme: '' }
+  try {
+    const doc = window.parent.document
+    const host = getComputedStyle(doc.documentElement)
+    let bg = host.getPropertyValue('--primary-background-color').trim()
+    if (!bg) bg = getComputedStyle(doc.body).backgroundColor
+    // Convertit n'importe quelle couleur CSS en rgb(...) pour en calculer la luminosité.
+    const probe = document.createElement('span')
+    probe.style.color = bg
+    document.body.appendChild(probe)
+    const rgb = getComputedStyle(probe).color.match(/[\d.]+/g)?.map(Number)
+    probe.remove()
+    const lum = rgb && (0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]) / 255
+    return {
+      theme: lum === undefined || rgb[3] === 0 ? fallback.theme : lum < 0.5 ? 'dark' : 'light',
+      // Le navigateur ne laisse voir à travers le cadre que si les deux pages ont le même color-scheme.
+      scheme: window.frameElement ? getComputedStyle(window.frameElement).colorScheme : '',
+    }
+  } catch {
+    return fallback // page hôte d'une autre origine : on ne peut pas la lire
+  }
+}
+
+/** Applique le thème choisi sur <html>. En mode transparent, suit le thème HA quand il change. */
+export function applyTheme(theme) {
+  const root = document.documentElement
+  if (theme !== 'transparent' || !EMBEDDED) {
+    delete root.dataset.bg
+    root.style.colorScheme = ''
+    root.dataset.theme = theme === 'dark' ? 'dark' : 'light'
+    return () => {}
+  }
+  const update = () => {
+    const { theme: t, scheme } = hostAppearance()
+    root.dataset.theme = t
+    root.dataset.bg = 'transparent'
+    root.style.colorScheme = scheme || ''
+  }
+  update()
+  const observers = []
+  try {
+    const doc = window.parent.document
+    for (const el of [doc.documentElement, doc.body, window.frameElement].filter(Boolean)) {
+      const o = new MutationObserver(update)
+      o.observe(el, { attributes: true, attributeFilter: ['style', 'class', 'data-theme'] })
+      observers.push(o)
+    }
+  } catch { /* autre origine */ }
+  const mq = matchMedia('(prefers-color-scheme: dark)')
+  mq.addEventListener('change', update)
+  const timer = setInterval(update, 5000) // filet de sécurité (thème HA changé autrement)
+  return () => {
+    observers.forEach((o) => o.disconnect())
+    mq.removeEventListener('change', update)
+    clearInterval(timer)
+  }
+}

@@ -4,7 +4,7 @@ Surveillez vos boîtes mail, vos API et vos machines depuis une seule page web, 
 
 - **Tableau de bord** : chiffres clés (OK / alertes / erreurs / mails non lus), une carte par sonde avec sa valeur, sa courbe et l'historique de ses dernières vérifications, regroupées par groupe.
 - **Sondes** : ajouter, modifier, dupliquer, désactiver ou supprimer une sonde, et la **tester** avant de l'enregistrer. Cette page est **réservée à l'administrateur** (identifiant + mot de passe) ; le tableau de bord reste consultable sans connexion, sans afficher les adresses ni les URL.
-- **Thème clair / sombre** et filtre **« Alertes et erreurs »** : vos choix sont mémorisés par le navigateur.
+- **Fond clair, sombre ou transparent** (le même bouton passe de l'un à l'autre ; « transparent », proposé seulement dans Home Assistant, laisse voir le fond du thème HA et suit son mode clair/sombre) et filtre **« Alertes et erreurs »** : vos choix sont mémorisés par le navigateur.
 
 Types de sondes disponibles :
 

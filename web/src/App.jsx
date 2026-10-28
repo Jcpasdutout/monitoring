@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Activity, LayoutDashboard, ListChecks, Moon, RefreshCw, Sun } from 'lucide-react'
+import { Activity, Blend, LayoutDashboard, ListChecks, Moon, RefreshCw, Sun } from 'lucide-react'
 import { api } from './api.js'
 import Account from './Account.jsx'
 import Dashboard, { filterProbes, normalizeFilter, PROBLEMS } from './Dashboard.jsx'
 import Login from './Login.jsx'
 import Probes from './Probes.jsx'
 import Settings from './Settings.jsx'
-import { EMBEDDED, usePersistentState } from './util.js'
+import { applyTheme, EMBEDDED, THEMES, usePersistentState } from './util.js'
 
 const REFRESH_MS = 10000
+
+// Le bouton affiche le thème qu'on obtiendra en cliquant.
+const THEME_BUTTON = {
+  light: { icon: Sun, title: 'Passer en fond clair' },
+  dark: { icon: Moon, title: 'Passer en fond sombre' },
+  transparent: { icon: Blend, title: 'Passer en fond transparent (fond du thème Home Assistant)' },
+}
 
 function useHashRoute() {
   const [route, setRoute] = useState(() => window.location.hash.slice(1) || '/')
@@ -32,9 +39,12 @@ export default function App() {
   const filter = normalizeFilter(savedFilter)
   const [view, setView] = usePersistentState('monitoring.view', 'cards')
   const [autoHide, setAutoHide] = usePersistentState('monitoring.autoHide', true)
-  const [theme, setTheme] = usePersistentState('monitoring.theme', document.documentElement.dataset.theme || 'light')
+  const [savedTheme, setTheme] = usePersistentState('monitoring.theme', document.documentElement.dataset.theme || 'light')
+  const theme = THEMES.includes(savedTheme) ? savedTheme : 'light'
+  const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]
+  const NextThemeIcon = THEME_BUTTON[nextTheme].icon
 
-  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  useEffect(() => applyTheme(theme), [theme])
 
   const loadAuth = useCallback(() => api.auth().then(setAuth).catch(() => {}), [])
   useEffect(() => {
@@ -104,9 +114,8 @@ export default function App() {
           <button className="btn btn-ghost" onClick={refreshAll} disabled={refreshing} title="Relancer toutes les sondes">
             <RefreshCw size={16} className={refreshing ? 'spin' : ''} /><span className="hide-sm">Actualiser</span>
           </button>
-          <button className="icon-btn icon-btn-bordered" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            title={theme === 'dark' ? 'Passer en thème clair' : 'Passer en thème sombre'}>
-            {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+          <button className="icon-btn icon-btn-bordered" onClick={() => setTheme(nextTheme)} title={THEME_BUTTON[nextTheme].title}>
+            <NextThemeIcon size={17} />
           </button>
           <Settings filter={filter} setFilter={setFilter} total={probes?.length || 0} problemCount={problemCount}
             view={view} setView={setView} autoHide={autoHide} setAutoHide={EMBEDDED ? null : setAutoHide} />
