@@ -56,6 +56,8 @@ navigateur ──HTTP──▶ server.py ── API /api/... ──▶ store.py 
 | `config.example.toml` | réglages du serveur (adresse, port, dossier des données) |
 | `deploy/` | installation dans un conteneur LXC Proxmox |
 
+Si la variable d'environnement `MONITORING_TOKEN_FILE` est définie, le serveur y écrit au démarrage un jeton d'accès (nommé d'après `MONITORING_TOKEN_NAME`) et le recrée s'il a été supprimé. L'add-on Home Assistant s'en sert pour que l'intégration se configure en un clic.
+
 ---
 
 ## Tester sur votre PC
