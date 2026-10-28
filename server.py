@@ -22,7 +22,7 @@ from store import Store
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.4.0"
+VERSION = "2.4.1"
 COOKIE = "monitoring_session"
 
 
@@ -316,6 +316,7 @@ def make_handler(store, monitor):
         return {"ok": True}
 
     class Handler(SimpleHTTPRequestHandler):
+        cache_control = None  # en-tête Cache-Control des fichiers de l'interface
         def __init__(self, *a, **kw):
             super().__init__(*a, directory=str(STATIC), **kw)
 
@@ -364,6 +365,7 @@ def make_handler(store, monitor):
         def dispatch(self, method):
             path = self.path.split("?", 1)[0]
             self.extra_headers = []
+            self.cache_control = None
             if path.startswith("/api/"):
                 cookie = SimpleCookie(self.headers.get("Cookie", ""))
                 self.token = cookie[COOKIE].value if COOKIE in cookie else None
@@ -395,7 +397,16 @@ def make_handler(store, monitor):
             # Application monopage : toute URL inconnue renvoie index.html.
             if "." not in path.rsplit("/", 1)[-1] and not (STATIC / path.lstrip("/")).is_file():
                 self.path = "/index.html"
+            # index.html toujours revalidé (sinon le navigateur garde l'ancienne interface après une
+            # mise à jour) ; les fichiers de assets/ portent une empreinte dans leur nom : cache long.
+            self.cache_control = ("public, max-age=31536000, immutable" if path.startswith("/assets/")
+                                  else "no-cache")
             return super().do_GET()
+
+        def end_headers(self):
+            if self.cache_control:
+                self.send_header("Cache-Control", self.cache_control)
+            super().end_headers()
 
         def do_GET(self):
             self.dispatch("GET")
