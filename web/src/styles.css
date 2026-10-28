@@ -100,6 +100,20 @@ button { font: inherit; color: inherit; }
 .content { max-width: 1240px; margin: 0 auto; padding: 28px 24px 60px; }
 .autohide + .content { padding-top: 30px; }
 
+/* Dans Home Assistant : le menu devient une barre flottante en bas à droite (HA a déjà son bandeau en haut). */
+.topbar-zone.embedded { position: fixed; right: 16px; bottom: 16px; }
+.embedded .topbar {
+  height: auto; gap: 4px; padding: 5px; border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+}
+.embedded .brand, .embedded .hide-sm, .embedded .tabs span { display: none; }
+.embedded .tabs a { padding: 9px; }
+.embedded .topbar-right { gap: 4px; }
+.embedded .topbar-right .btn { padding: 0 10px; }
+.embedded .menu-pop { top: auto; bottom: calc(100% + 10px); }
+.embedded + .content { padding-bottom: 100px; }
+.embedded ~ .toast { bottom: 84px; }
+
 /* Boutons */
 .btn {
   display: inline-flex; align-items: center; gap: 7px;
@@ -453,6 +467,10 @@ input:focus, select:focus, textarea:focus {
 .icon-btn.is-open { color: var(--accent); border-color: var(--accent); }
 @media (max-width: 640px) {
   .settings-pop { position: fixed; left: 12px; right: 12px; top: auto; width: auto; margin-top: 6px; }
+  .embedded .settings-pop { position: absolute; left: auto; right: 0; width: calc(100vw - 24px); }
+  .topbar-zone.embedded { right: 12px; bottom: 12px; }
+  .embedded .topbar { flex-wrap: nowrap; padding: 5px; }
+  .embedded .topbar-right { width: auto; }
 }
 
 /* Jauges (SNMP) */

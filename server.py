@@ -22,7 +22,7 @@ from store import Store
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.3.0"
+VERSION = "2.4.0"
 COOKIE = "monitoring_session"
 
 

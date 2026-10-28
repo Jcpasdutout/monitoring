@@ -51,9 +51,11 @@ export default function Settings({ filter, setFilter, total, problemCount, view,
               </button>
             </div>
           </div>
-          <div className="settings-section settings-row">
-            <Toggle checked={autoHide} onChange={setAutoHide} label="Masquer automatiquement le bandeau" />
-          </div>
+          {setAutoHide && (
+            <div className="settings-section settings-row">
+              <Toggle checked={autoHide} onChange={setAutoHide} label="Masquer automatiquement le bandeau" />
+            </div>
+          )}
         </div>
       )}
     </div>
