@@ -6,7 +6,7 @@ import Dashboard, { filterProbes, normalizeFilter, PROBLEMS } from './Dashboard.
 import Login from './Login.jsx'
 import Probes from './Probes.jsx'
 import Settings from './Settings.jsx'
-import { usePersistentState } from './util.js'
+import { EMBEDDED, usePersistentState } from './util.js'
 
 const REFRESH_MS = 10000
 
@@ -89,9 +89,10 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Bandeau masqué (option) : une fine bande reste visible et le déplie au survol (ou au toucher). */}
-      <div className={`topbar-zone ${autoHide ? 'autohide' : 'pinned'}`} tabIndex={-1}>
-        {autoHide && <div className={`topbar-strip strip-${error ? 'error' : worst}`} />}
+      {/* Bandeau masqué (option) : une fine bande reste visible et le déplie au survol (ou au toucher).
+          Dans Home Assistant, le menu flotte en bas à droite pour ne pas doubler le bandeau de HA. */}
+      <div className={`topbar-zone ${EMBEDDED ? 'embedded' : autoHide ? 'autohide' : 'pinned'}`} tabIndex={-1}>
+        {autoHide && !EMBEDDED && <div className={`topbar-strip strip-${error ? 'error' : worst}`} />}
       <header className="topbar">
         <div className="brand"><span className="logo"><Activity size={18} /></span>Monitoring</div>
         <nav className="tabs">
@@ -99,7 +100,7 @@ export default function App() {
           <a href="#/sondes" title="Sondes" className={page === 'probes' ? 'active' : ''}><ListChecks size={16} /><span>Sondes</span></a>
         </nav>
         <div className="topbar-right">
-          {error && <span className="conn-error">{error}</span>}
+          {error && <span className="conn-error" title={error}>{EMBEDDED ? <span className="dot dot-error" /> : error}</span>}
           <button className="btn btn-ghost" onClick={refreshAll} disabled={refreshing} title="Relancer toutes les sondes">
             <RefreshCw size={16} className={refreshing ? 'spin' : ''} /><span className="hide-sm">Actualiser</span>
           </button>
@@ -108,7 +109,7 @@ export default function App() {
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
           <Settings filter={filter} setFilter={setFilter} total={probes?.length || 0} problemCount={problemCount}
-            view={view} setView={setView} autoHide={autoHide} setAutoHide={setAutoHide} />
+            view={view} setView={setView} autoHide={autoHide} setAutoHide={EMBEDDED ? null : setAutoHide} />
           {auth?.user && (
             <Account user={auth.user} notify={notify}
               onLogout={async () => { await loadAuth(); await load(); notify('Déconnecté') }} />

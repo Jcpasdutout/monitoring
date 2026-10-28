@@ -16,6 +16,14 @@ export function usePersistentState(key, initial) {
   return [value, setValue]
 }
 
+/**
+ * Vrai quand l'interface est affichée dans Home Assistant (panneau de l'add-on, via l'Ingress),
+ * ou forcé avec ?integre dans l'adresse. HA a déjà son propre bandeau en haut : le menu de
+ * l'application devient alors une petite barre flottante en bas à droite.
+ */
+export const EMBEDDED = window.location.pathname.includes('/api/hassio_ingress/')
+  || new URLSearchParams(window.location.search).has('integre')
+
 export const STATUS_LABEL = { ok: 'OK', warning: 'Alerte', error: 'Erreur', pending: 'En attente', paused: 'En pause' }
 
 export function statusOf(probe) {
