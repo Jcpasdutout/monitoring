@@ -16,12 +16,18 @@ export function usePersistentState(key, initial) {
   return [value, setValue]
 }
 
+function inFrame() {
+  try { return window.self !== window.top } catch { return true } // cadre d'une autre origine
+}
+
 /**
- * Vrai quand l'interface est affichée dans Home Assistant (panneau de l'add-on, via l'Ingress),
- * ou forcé avec ?integre dans l'adresse. HA a déjà son propre bandeau en haut : le menu de
- * l'application devient alors une petite barre flottante en bas à droite.
+ * Vrai quand l'interface est affichée à l'intérieur d'une autre page (panneau de l'add-on Home
+ * Assistant via l'Ingress, carte ou panneau « page web » de HA), ou forcé avec ?integre dans
+ * l'adresse. La page hôte a déjà son bandeau en haut : le menu de l'application devient alors
+ * une petite barre flottante en bas à droite.
  */
-export const EMBEDDED = window.location.pathname.includes('/api/hassio_ingress/')
+export const EMBEDDED = inFrame()
+  || window.location.pathname.includes('/api/hassio_ingress/')
   || new URLSearchParams(window.location.search).has('integre')
 
 export const STATUS_LABEL = { ok: 'OK', warning: 'Alerte', error: 'Erreur', pending: 'En attente', paused: 'En pause' }

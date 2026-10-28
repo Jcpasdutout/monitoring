@@ -176,7 +176,7 @@ L'intégration [ha-monitoring](https://github.com/jcpasdutout/ha-monitoring) (in
 Elle se connecte avec un **jeton d'accès** : menu de votre compte (en haut à droite) → **Jetons d'accès (Home Assistant)** → **Créer**, puis copiez le jeton (il n'est affiché qu'une fois).
 Un jeton permet seulement de lire l'état des sondes et de les relancer, jamais de les modifier ; supprimez-le pour couper l'accès.
 
-Dans le panneau de l'add-on Home Assistant, HA affiche déjà son propre bandeau en haut : le menu de l'application (onglets, Actualiser, thème, réglages, compte) devient une petite barre flottante en bas à droite. Ajoutez `?integre` à l'adresse pour voir cette présentation hors de HA.
+Dans Home Assistant (panneau de l'add-on, ou carte/panneau « page web »), HA affiche déjà son propre bandeau en haut : le menu de l'application (onglets, Actualiser, thème, réglages, compte) devient une petite barre flottante en bas à droite. Ajoutez `?integre` à l'adresse pour voir cette présentation hors de HA.
 
 ## Sécurité
 
