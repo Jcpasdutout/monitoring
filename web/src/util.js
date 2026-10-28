@@ -70,7 +70,7 @@ export const THEMES = EMBEDDED ? ['light', 'dark', 'transparent'] : ['light', 'd
 
 /** Lit le fond du thème Home Assistant (page parente, même origine via l'Ingress) : clair ou sombre ? */
 function hostAppearance() {
-  const fallback = { theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', scheme: '' }
+  const fallback = { theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light', scheme: '', background: '' }
   try {
     const doc = window.parent.document
     const host = getComputedStyle(doc.documentElement)
@@ -87,6 +87,10 @@ function hostAppearance() {
       theme: lum === undefined || rgb[3] === 0 ? fallback.theme : lum < 0.5 ? 'dark' : 'light',
       // Le navigateur ne laisse voir à travers le cadre que si les deux pages ont le même color-scheme.
       scheme: window.frameElement ? getComputedStyle(window.frameElement).colorScheme : '',
+      // Image ou dégradé de fond défini par le thème HA : HA ne l'affiche que sur les tableaux de bord,
+      // pas derrière le panneau de l'add-on, donc on le peint nous-mêmes.
+      background: host.getPropertyValue('--lovelace-background').trim()
+        || host.getPropertyValue('--ha-panel-background').trim(),
     }
   } catch {
     return fallback // page hôte d'une autre origine : on ne peut pas la lire
@@ -99,14 +103,17 @@ export function applyTheme(theme) {
   if (theme !== 'transparent' || !EMBEDDED) {
     delete root.dataset.bg
     root.style.colorScheme = ''
+    root.style.removeProperty('--ha-background')
     root.dataset.theme = theme === 'dark' ? 'dark' : 'light'
     return () => {}
   }
   const update = () => {
-    const { theme: t, scheme } = hostAppearance()
+    const { theme: t, scheme, background } = hostAppearance()
     root.dataset.theme = t
     root.dataset.bg = 'transparent'
     root.style.colorScheme = scheme || ''
+    if (background) root.style.setProperty('--ha-background', background)
+    else root.style.removeProperty('--ha-background')
   }
   update()
   const observers = []
