@@ -40,6 +40,9 @@
   color-scheme: dark;
 }
 
+/* Fond transparent (dans Home Assistant) : on voit le fond du thème HA derrière l'application. */
+:root[data-bg="transparent"], :root[data-bg="transparent"] body { background: transparent; }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
