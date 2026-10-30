@@ -56,7 +56,6 @@ function ocean(dark) {
 }
 
 export const BACKGROUNDS = [
-  { id: 'none', name: 'Aucune', css: () => 'none' },
   {
     id: 'aurore', name: 'Aurore', css: (dark) => dark
       ? 'radial-gradient(60% 70% at 15% 20%, #3b2a8f 0%, transparent 60%), radial-gradient(50% 60% at 85% 30%, #0f5d73 0%, transparent 60%), radial-gradient(60% 60% at 60% 95%, #5a1f6e 0%, transparent 60%), #0b0d18'
@@ -86,7 +85,7 @@ export function customBackground(version) {
 export function backgroundCss(id, dark, customVersion) {
   if (id === 'custom') return customVersion ? customBackground(customVersion) : null
   const bg = BACKGROUNDS.find((b) => b.id === id)
-  return bg && bg.id !== 'none' ? bg.css(dark) : null
+  return bg ? bg.css(dark) : null
 }
 
 /**

@@ -1,25 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Activity, Blend, LayoutDashboard, ListChecks, Maximize2, Minimize2, Moon, RefreshCw, Sun } from 'lucide-react'
+import { Activity, LayoutDashboard, ListChecks, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { api } from './api.js'
 import Account from './Account.jsx'
-import BackgroundPicker from './Background.jsx'
-import { backgroundCss } from './backgrounds.js'
+import Appearance from './Appearance.jsx'
+import { BACKGROUNDS, backgroundCss } from './backgrounds.js'
 import Dashboard, { filterProbes, normalizeFilter, PROBLEMS } from './Dashboard.jsx'
 import Login from './Login.jsx'
 import Probes from './Probes.jsx'
 import Settings from './Settings.jsx'
 import {
-  applyTheme, EMBEDDED, IN_HOME_ASSISTANT, setHomeAssistantFullscreen, THEMES, usePersistentState, useRootTheme,
+  applyTheme, EMBEDDED, IN_HOME_ASSISTANT, setHomeAssistantFullscreen, THEMES, usePersistentState,
 } from './util.js'
 
 const REFRESH_MS = 10000
-
-// Le bouton affiche le thème qu'on obtiendra en cliquant.
-const THEME_BUTTON = {
-  light: { icon: Sun, title: 'Passer en fond clair' },
-  dark: { icon: Moon, title: 'Passer en fond sombre' },
-  transparent: { icon: Blend, title: 'Passer en fond transparent (fond du thème Home Assistant)' },
-}
 
 function useHashRoute() {
   const [route, setRoute] = useState(() => window.location.hash.slice(1) || '/')
@@ -45,17 +38,16 @@ export default function App() {
   const [autoHide, setAutoHide] = usePersistentState('monitoring.autoHide', true)
   const [savedTheme, setTheme] = usePersistentState('monitoring.theme', document.documentElement.dataset.theme || 'light')
   const theme = THEMES.includes(savedTheme) ? savedTheme : 'light'
-  const nextTheme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]
-  const NextThemeIcon = THEME_BUTTON[nextTheme].icon
-
-  useEffect(() => applyTheme(theme), [theme])
 
   // Image de fond (choix mémorisé dans ce navigateur ; l'image personnelle est sur le serveur).
-  const [background, setBackground] = usePersistentState('monitoring.background', 'none')
+  // En mode Image, l'interface prend le thème de la version affichée (claire ou sombre).
+  const [savedBackground, setBackground] = usePersistentState('monitoring.background', BACKGROUNDS[0].id)
+  const [bgVariant, setBgVariant] = usePersistentState('monitoring.backgroundVariant', 'light')
   const [veil, setVeil] = usePersistentState('monitoring.backgroundVeil', 25)
   const [glass, setGlass] = usePersistentState('monitoring.backgroundGlass', true)
-  const [bgInHa, setBgInHa] = usePersistentState('monitoring.backgroundTransparent', false)
-  const rootTheme = useRootTheme()
+  const variant = bgVariant === 'dark' ? 'dark' : 'light'
+
+  useEffect(() => applyTheme(theme === 'image' ? variant : theme), [theme, variant])
 
   // Dans Home Assistant : plein écran (sans la barre latérale ni le bandeau de HA) ou non.
   const [haFullscreen, setHaFullscreen] = usePersistentState('monitoring.haFullscreen', false)
@@ -108,8 +100,9 @@ export default function App() {
 
   const customVersion = auth?.background || null
   const setCustomVersion = (v) => setAuth((a) => ({ ...a, background: v }))
-  // En mode transparent (Home Assistant), le fond du thème HA reste visible sauf si on demande l'image.
-  const bgCss = rootTheme.transparent && !bgInHa ? null : backgroundCss(background, rootTheme.dark, customVersion)
+  const background = savedBackground === 'custom' ? (auth && !customVersion ? BACKGROUNDS[0].id : 'custom')
+    : BACKGROUNDS.some((b) => b.id === savedBackground) ? savedBackground : BACKGROUNDS[0].id
+  const bgCss = theme === 'image' ? backgroundCss(background, variant === 'dark', customVersion) : null
 
   const page = route.startsWith('/sondes') ? 'probes' : 'dashboard'
   const problemCount = probes ? filterProbes(probes, PROBLEMS).length : 0
@@ -142,16 +135,12 @@ export default function App() {
               {haFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
             </button>
           )}
-          <button className="icon-btn icon-btn-bordered" onClick={() => setTheme(nextTheme)} title={THEME_BUTTON[nextTheme].title}>
-            <NextThemeIcon size={17} />
-          </button>
           <Settings filter={filter} setFilter={setFilter} total={probes?.length || 0} problemCount={problemCount}
             view={view} setView={setView} autoHide={autoHide} setAutoHide={EMBEDDED ? null : setAutoHide}
             version={auth?.version} addonVersion={auth?.addon_version}>
-            <BackgroundPicker dark={rootTheme.dark} customVersion={customVersion} setCustomVersion={setCustomVersion}
+            <Appearance theme={theme} setTheme={setTheme} customVersion={customVersion} setCustomVersion={setCustomVersion}
               isAdmin={!!auth?.user} notify={notify}
-              settings={{ background, setBackground, veil, setVeil, glass, setGlass,
-                inHa: bgInHa, setInHa: EMBEDDED ? setBgInHa : null }} />
+              settings={{ background, setBackground, variant, setVariant: setBgVariant, veil, setVeil, glass, setGlass }} />
           </Settings>
           {auth?.user && (
             <Account user={auth.user} notify={notify}
