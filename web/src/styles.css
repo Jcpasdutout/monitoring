@@ -535,3 +535,48 @@ input:focus, select:focus, textarea:focus {
 .token-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 11px; }
 .token-list li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 14px; }
 .token-list li + li { border-top: 1px solid var(--border); }
+
+/* Image de fond : deux calques fixes derrière l'interface (l'image puis un voile de la couleur du thème). */
+.app { position: relative; isolation: isolate; }
+.app-bg, .app-veil { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+.app-bg { background-repeat: no-repeat; }
+.app-veil { background: var(--bg); transition: opacity .2s; }
+.glass .stat, .glass .card, .glass .list, .glass .empty-state {
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
+.has-bg .group-title { text-shadow: 0 0 6px var(--bg), 0 0 2px var(--bg); }
+
+/* Galerie dans le menu Réglages (préfixe .menu-pop : plus fort que le style générique des boutons du menu) */
+.settings-pop { max-height: calc(100vh - 90px); overflow: hidden auto; }
+.settings-pop .toggle { position: relative; } /* garde la case cachée des interrupteurs dans le menu */
+.settings-label-row { display: flex; }
+.settings-label-row span { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--accent); }
+.settings-hint { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
+.bg-gallery { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+.bg-thumb-wrap { position: relative; }
+.menu-pop .bg-thumb {
+  position: relative; display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 9px; cursor: pointer; background-size: cover; background-position: center;
+}
+.menu-pop .bg-thumb > span {
+  position: absolute; left: 0; right: 0; bottom: 0; padding: 10px 5px 3px; text-align: left;
+  font-size: 10.5px; font-weight: 600; color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, .55));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.menu-pop .bg-thumb.active { outline: 2px solid var(--accent); outline-offset: 2px; }
+.menu-pop .bg-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.menu-pop .bg-thumb-none { background: var(--bg); }
+.menu-pop .bg-thumb-none > span, .menu-pop .bg-thumb-add > span { color: var(--muted); background: none; text-align: center; }
+.menu-pop .bg-thumb-add { display: grid; place-items: center; background: var(--surface-2); border-style: dashed; color: var(--muted); }
+.menu-pop .bg-thumb-add svg { margin-bottom: 12px; }
+.menu-pop .bg-thumb-add:hover, .menu-pop .bg-thumb-none:hover { color: var(--accent); border-color: var(--accent); }
+.menu-pop .bg-thumb-del {
+  position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; padding: 0;
+}
+.menu-pop .bg-thumb-del:hover { color: var(--error); border-color: var(--error); }
+.bg-options { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.bg-veil { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.bg-veil input { flex: 1; min-width: 0; accent-color: var(--accent); }
+.bg-veil output { width: 40px; text-align: right; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }

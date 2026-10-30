@@ -1,8 +1,10 @@
 async function request(method, url, body) {
+  // Un fichier (Blob) est envoyé tel quel, le reste en JSON.
+  const raw = body instanceof Blob
   const res = await fetch(url, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    body: body ? JSON.stringify(body) : undefined,
+    headers: raw ? { 'Content-Type': body.type } : body ? { 'Content-Type': 'application/json' } : {},
+    body: raw ? body : body ? JSON.stringify(body) : undefined,
     cache: 'no-store',
   })
   const data = await res.json().catch(() => ({}))
@@ -33,4 +35,6 @@ export const api = {
   tokens: () => request('GET', 'api/tokens'),
   createToken: (name) => request('POST', 'api/tokens', { name }),
   removeToken: (id) => request('DELETE', `api/tokens/${id}`),
+  uploadBackground: (blob) => request('PUT', 'api/background', blob),
+  removeBackground: () => request('DELETE', 'api/background'),
 }

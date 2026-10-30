@@ -3,8 +3,8 @@ import { AlertTriangle, Layers, LayoutGrid, List, Settings as Gear } from 'lucid
 import { Toggle } from './components.jsx'
 import { isProblems, PROBLEMS } from './Dashboard.jsx'
 
-/** Menu « roue crantée » : filtre, présentation, masquage du bandeau et numéros de version. */
-export default function Settings({ filter, setFilter, total, problemCount, view, setView, autoHide, setAutoHide, version, addonVersion }) {
+/** Menu « roue crantée » : filtre, présentation, image de fond (children), masquage du bandeau et versions. */
+export default function Settings({ children, filter, setFilter, total, problemCount, view, setView, autoHide, setAutoHide, version, addonVersion }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -51,6 +51,7 @@ export default function Settings({ filter, setFilter, total, problemCount, view,
               </button>
             </div>
           </div>
+          {children}
           {setAutoHide && (
             <div className="settings-section settings-row">
               <Toggle checked={autoHide} onChange={setAutoHide} label="Masquer automatiquement le bandeau" />

@@ -119,6 +119,26 @@ function hostAppearance() {
   }
 }
 
+/** Thème réellement affiché (lu sur <html>, il suit aussi Home Assistant en mode transparent). */
+export function useRootTheme() {
+  const read = () => {
+    const root = document.documentElement
+    return { dark: root.dataset.theme === 'dark', transparent: root.dataset.bg === 'transparent' }
+  }
+  const [state, setState] = useState(read)
+  useEffect(() => {
+    const update = () => setState((old) => {
+      const now = read()
+      return now.dark === old.dark && now.transparent === old.transparent ? old : now
+    })
+    const o = new MutationObserver(update)
+    o.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-bg'] })
+    update()
+    return () => o.disconnect()
+  }, [])
+  return state
+}
+
 /** Applique le thème choisi sur <html>. En mode transparent, suit le thème HA quand il change. */
 export function applyTheme(theme) {
   const root = document.documentElement
