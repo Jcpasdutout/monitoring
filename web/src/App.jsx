@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Activity, LayoutDashboard, ListChecks, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, ListChecks, Maximize2, Minimize2, RefreshCw } from 'lucide-react'
 import { api } from './api.js'
 import Account from './Account.jsx'
 import Appearance from './Appearance.jsx'
@@ -119,7 +119,6 @@ export default function App() {
       <div className={`topbar-zone ${EMBEDDED ? 'embedded' : autoHide ? 'autohide' : 'pinned'}`} tabIndex={-1}>
         {autoHide && !EMBEDDED && <div className={`topbar-strip strip-${error ? 'error' : worst}`} />}
       <header className="topbar">
-        <div className="brand"><span className="logo"><Activity size={18} /></span>Monitoring</div>
         <nav className="tabs">
           <a href="#/" title="Tableau de bord" className={page === 'dashboard' ? 'active' : ''}><LayoutDashboard size={16} /><span>Tableau de bord</span></a>
           <a href="#/sondes" title="Sondes" className={page === 'probes' ? 'active' : ''}><ListChecks size={16} /><span>Sondes</span></a>

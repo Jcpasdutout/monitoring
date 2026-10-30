@@ -87,11 +87,6 @@ button { font: inherit; color: inherit; }
   border-bottom: 1px solid var(--border);
 }
 .autohide:hover .topbar, .autohide:has(:focus-visible) .topbar, .autohide:has(.menu-pop) .topbar { transform: none; transition-delay: 0s; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
-.logo {
-  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px;
-  background: linear-gradient(135deg, var(--accent), #a855f7); color: #fff;
-}
 .tabs { display: flex; gap: 4px; }
 .tabs a {
   display: flex; align-items: center; gap: 7px;
@@ -111,7 +106,7 @@ button { font: inherit; color: inherit; }
   height: auto; gap: 4px; padding: 5px; border: 1px solid var(--border); border-radius: 14px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
 }
-.embedded .brand, .embedded .hide-sm, .embedded .tabs span { display: none; }
+.embedded .hide-sm, .embedded .tabs span { display: none; }
 .embedded .tabs a { padding: 9px; }
 .embedded .topbar-right { gap: 4px; }
 .embedded .topbar-right .btn { padding: 0 10px; }
@@ -339,7 +334,6 @@ input:focus, select:focus, textarea:focus {
 }
 @media (max-width: 640px) {
   .topbar { gap: 12px; padding: 0 16px; }
-  .brand { font-size: 0; gap: 0; }
   .tabs a { padding: 7px 9px; }
   .hide-sm { display: none; }
   .content { padding: 20px 16px 48px; }
