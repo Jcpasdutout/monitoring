@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { Activity, Blend, LayoutDashboard, ListChecks, Maximize2, Minimize2, Moon, RefreshCw, Sun } from 'lucide-react'
 import { api } from './api.js'
 import Account from './Account.jsx'
+import BackgroundPicker from './Background.jsx'
+import { backgroundCss } from './backgrounds.js'
 import Dashboard, { filterProbes, normalizeFilter, PROBLEMS } from './Dashboard.jsx'
 import Login from './Login.jsx'
 import Probes from './Probes.jsx'
 import Settings from './Settings.jsx'
 import {
-  applyTheme, EMBEDDED, IN_HOME_ASSISTANT, setHomeAssistantFullscreen, THEMES, usePersistentState,
+  applyTheme, EMBEDDED, IN_HOME_ASSISTANT, setHomeAssistantFullscreen, THEMES, usePersistentState, useRootTheme,
 } from './util.js'
 
 const REFRESH_MS = 10000
@@ -47,6 +49,13 @@ export default function App() {
   const NextThemeIcon = THEME_BUTTON[nextTheme].icon
 
   useEffect(() => applyTheme(theme), [theme])
+
+  // Image de fond (choix mémorisé dans ce navigateur ; l'image personnelle est sur le serveur).
+  const [background, setBackground] = usePersistentState('monitoring.background', 'none')
+  const [veil, setVeil] = usePersistentState('monitoring.backgroundVeil', 25)
+  const [glass, setGlass] = usePersistentState('monitoring.backgroundGlass', true)
+  const [bgInHa, setBgInHa] = usePersistentState('monitoring.backgroundTransparent', false)
+  const rootTheme = useRootTheme()
 
   // Dans Home Assistant : plein écran (sans la barre latérale ni le bandeau de HA) ou non.
   const [haFullscreen, setHaFullscreen] = usePersistentState('monitoring.haFullscreen', false)
@@ -97,6 +106,11 @@ export default function App() {
     document.title = unread ? `(${unread}) Monitoring` : 'Monitoring'
   }, [unread])
 
+  const customVersion = auth?.background || null
+  const setCustomVersion = (v) => setAuth((a) => ({ ...a, background: v }))
+  // En mode transparent (Home Assistant), le fond du thème HA reste visible sauf si on demande l'image.
+  const bgCss = rootTheme.transparent && !bgInHa ? null : backgroundCss(background, rootTheme.dark, customVersion)
+
   const page = route.startsWith('/sondes') ? 'probes' : 'dashboard'
   const problemCount = probes ? filterProbes(probes, PROBLEMS).length : 0
   const worst = !probes ? 'ok'
@@ -104,7 +118,9 @@ export default function App() {
     : filterProbes(probes, ['warning']).length ? 'warning' : 'ok'
 
   return (
-    <div className="app">
+    <div className={`app ${bgCss ? 'has-bg' : ''} ${bgCss && glass ? 'glass' : ''}`}>
+      {bgCss && <div className="app-bg" style={{ background: bgCss }} />}
+      {bgCss && <div className="app-veil" style={{ opacity: veil / 100 }} />}
       {/* Bandeau masqué (option) : une fine bande reste visible et le déplie au survol (ou au toucher).
           Dans Home Assistant, le menu flotte en bas à droite pour ne pas doubler le bandeau de HA. */}
       <div className={`topbar-zone ${EMBEDDED ? 'embedded' : autoHide ? 'autohide' : 'pinned'}`} tabIndex={-1}>
@@ -131,7 +147,12 @@ export default function App() {
           </button>
           <Settings filter={filter} setFilter={setFilter} total={probes?.length || 0} problemCount={problemCount}
             view={view} setView={setView} autoHide={autoHide} setAutoHide={EMBEDDED ? null : setAutoHide}
-            version={auth?.version} addonVersion={auth?.addon_version} />
+            version={auth?.version} addonVersion={auth?.addon_version}>
+            <BackgroundPicker dark={rootTheme.dark} customVersion={customVersion} setCustomVersion={setCustomVersion}
+              isAdmin={!!auth?.user} notify={notify}
+              settings={{ background, setBackground, veil, setVeil, glass, setGlass,
+                inHa: bgInHa, setInHa: EMBEDDED ? setBgInHa : null }} />
+          </Settings>
           {auth?.user && (
             <Account user={auth.user} notify={notify}
               onLogout={async () => { await loadAuth(); await load(); notify('Déconnecté') }} />

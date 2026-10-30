@@ -22,10 +22,13 @@ from store import Store
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.7.0"
+VERSION = "2.8.0"
 # Version de l'add-on Home Assistant, transmise par son Dockerfile (vide hors add-on).
 ADDON_VERSION = os.environ.get("MONITORING_ADDON_VERSION", "")
 COOKIE = "monitoring_session"
+# Image de fond personnelle envoyée depuis l'interface (stockée dans le dossier des données).
+BACKGROUND_MAX = 10_000_000
+BACKGROUND_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
 def load_env_file(path):
@@ -153,8 +156,14 @@ def probe_view(store, p, history=40, admin=False, token=False):
     return p
 
 
-def make_handler(store, monitor):
+def make_handler(store, monitor, data_dir):
     routes = []
+    background = Path(data_dir) / "background"
+    background_type = Path(data_dir) / "background.type"
+
+    def background_version():
+        """Date de la dernière image envoyée (sert à forcer son rechargement), ou None."""
+        return int(background.stat().st_mtime) if background.is_file() else None
 
     def route(method, pattern, admin=False):
         def deco(fn):
@@ -181,7 +190,7 @@ def make_handler(store, monitor):
                 "user": h.user["login"] if h.user else None,
                 "api_token": h.api["name"] if h.api else None,
                 "instance_id": store.instance_id(), "version": VERSION,
-                "addon_version": ADDON_VERSION or None}
+                "addon_version": ADDON_VERSION or None, "background": background_version()}
 
     @route("POST", "/api/auth/setup")
     def auth_setup(h):
@@ -301,6 +310,43 @@ def make_handler(store, monitor):
     def refresh(h):
         monitor.trigger()
         return {"ok": True}
+
+    @route("GET", "/api/background")
+    def get_background(h):
+        if not background.is_file():
+            return h.fail(404, "aucune image de fond")
+        ctype = background_type.read_text().strip() if background_type.is_file() else "image/jpeg"
+        data = background.read_bytes()
+        h.send_response(200)
+        h.send_header("Content-Type", ctype)
+        h.send_header("Content-Length", str(len(data)))
+        # L'adresse change à chaque nouvelle image (?v=...) : le navigateur peut la garder.
+        h.send_header("Cache-Control", "private, max-age=31536000")
+        h.end_headers()
+        h.wfile.write(data)
+
+    @route("PUT", "/api/background", admin=True)
+    def put_background(h):
+        ctype = h.headers.get("Content-Type", "").split(";")[0].strip().lower()
+        if ctype not in BACKGROUND_TYPES:
+            raise ValueError("format d'image non pris en charge (JPEG, PNG, WebP ou GIF)")
+        length = int(h.headers.get("Content-Length") or 0)
+        if not length:
+            raise ValueError("image vide")
+        if length > BACKGROUND_MAX:
+            raise ValueError("image trop volumineuse (10 Mo maximum)")
+        data = h.rfile.read(length)
+        tmp = background.with_suffix(".tmp")
+        tmp.write_bytes(data)
+        tmp.replace(background)
+        background_type.write_text(ctype)
+        return {"background": background_version()}
+
+    @route("DELETE", "/api/background", admin=True)
+    def delete_background(h):
+        background.unlink(missing_ok=True)
+        background_type.unlink(missing_ok=True)
+        return {"background": None}
 
     @route("GET", "/api/tokens", admin=True)
     def list_tokens(h):
@@ -493,7 +539,7 @@ def main():
     print(f"Tableau de bord : http://{host}:{port}")
     if not store.has_users():
         print("Aucun compte administrateur : créez-le depuis la page Sondes.")
-    ThreadingHTTPServer((host, port), make_handler(store, monitor)).serve_forever()
+    ThreadingHTTPServer((host, port), make_handler(store, monitor, data_dir)).serve_forever()
 
 
 if __name__ == "__main__":
