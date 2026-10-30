@@ -30,6 +30,28 @@ export const EMBEDDED = inFrame()
   || window.location.pathname.includes('/api/hassio_ingress/')
   || new URLSearchParams(window.location.search).has('integre')
 
+/** Vrai quand la page hôte est l'interface de Home Assistant (panneau de l'add-on via l'Ingress). */
+export const IN_HOME_ASSISTANT = (() => {
+  try {
+    return window.parent !== window && !!window.parent.document.querySelector('home-assistant')
+  } catch {
+    return false // page hôte d'une autre origine
+  }
+})()
+
+/**
+ * Plein écran dans Home Assistant : demande à HA de masquer sa barre latérale et son bandeau
+ * (son « mode kiosque »), ou de les réafficher. Message prévu par HA pour les panneaux d'add-ons.
+ */
+export function setHomeAssistantFullscreen(on) {
+  if (!IN_HOME_ASSISTANT) return
+  window.parent.postMessage(
+    on ? { type: 'home-assistant/subscribe-properties', kioskMode: true }
+      : { type: 'home-assistant/unsubscribe-properties' },
+    '*',
+  )
+}
+
 export const STATUS_LABEL = { ok: 'OK', warning: 'Alerte', error: 'Erreur', pending: 'En attente', paused: 'En pause' }
 
 export function statusOf(probe) {

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Activity, Blend, LayoutDashboard, ListChecks, Moon, RefreshCw, Sun } from 'lucide-react'
+import { Activity, Blend, LayoutDashboard, ListChecks, Maximize2, Minimize2, Moon, RefreshCw, Sun } from 'lucide-react'
 import { api } from './api.js'
 import Account from './Account.jsx'
 import Dashboard, { filterProbes, normalizeFilter, PROBLEMS } from './Dashboard.jsx'
 import Login from './Login.jsx'
 import Probes from './Probes.jsx'
 import Settings from './Settings.jsx'
-import { applyTheme, EMBEDDED, THEMES, usePersistentState } from './util.js'
+import {
+  applyTheme, EMBEDDED, IN_HOME_ASSISTANT, setHomeAssistantFullscreen, THEMES, usePersistentState,
+} from './util.js'
 
 const REFRESH_MS = 10000
 
@@ -45,6 +47,10 @@ export default function App() {
   const NextThemeIcon = THEME_BUTTON[nextTheme].icon
 
   useEffect(() => applyTheme(theme), [theme])
+
+  // Dans Home Assistant : plein écran (sans la barre latérale ni le bandeau de HA) ou non.
+  const [haFullscreen, setHaFullscreen] = usePersistentState('monitoring.haFullscreen', false)
+  useEffect(() => setHomeAssistantFullscreen(haFullscreen), [haFullscreen])
 
   const loadAuth = useCallback(() => api.auth().then(setAuth).catch(() => {}), [])
   useEffect(() => {
@@ -114,6 +120,12 @@ export default function App() {
           <button className="btn btn-ghost" onClick={refreshAll} disabled={refreshing} title="Relancer toutes les sondes">
             <RefreshCw size={16} className={refreshing ? 'spin' : ''} /><span className="hide-sm">Actualiser</span>
           </button>
+          {IN_HOME_ASSISTANT && (
+            <button className="icon-btn icon-btn-bordered" onClick={() => setHaFullscreen(!haFullscreen)}
+              title={haFullscreen ? "Réafficher l'interface de Home Assistant" : "Plein écran (masquer l'interface de Home Assistant)"}>
+              {haFullscreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
+            </button>
+          )}
           <button className="icon-btn icon-btn-bordered" onClick={() => setTheme(nextTheme)} title={THEME_BUTTON[nextTheme].title}>
             <NextThemeIcon size={17} />
           </button>
