@@ -243,8 +243,10 @@ button { font: inherit; color: inherit; }
 .row-actions { display: flex; justify-content: flex-end; gap: 2px; }
 
 /* Interrupteur */
-.toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
-.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+/* Case cachée : minuscule et accrochée à l'interrupteur, sinon la règle générique des champs
+   (width: 100 %) lui donne la largeur de la page et fait apparaître des ascenseurs. */
+.toggle input { position: absolute; left: 0; top: 0; width: 1px; height: 1px; margin: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; }
 .toggle-track {
   position: relative; width: 36px; height: 20px; border-radius: 99px; flex: none;
   background: var(--border); transition: background .15s;
@@ -543,7 +545,6 @@ input:focus, select:focus, textarea:focus {
 
 /* Galerie dans le menu Réglages (préfixe .menu-pop : plus fort que le style générique des boutons du menu) */
 .settings-pop { max-height: calc(100vh - 90px); overflow: hidden auto; }
-.settings-pop .toggle { position: relative; } /* garde la case cachée des interrupteurs dans le menu */
 .settings-label-row { display: flex; }
 /* Quatre thèmes dans Home Assistant : sans icônes pour que « Transparent » tienne. */
 .menu-pop .segmented-compact button { padding: 0 6px; }

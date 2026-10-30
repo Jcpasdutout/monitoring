@@ -22,7 +22,7 @@ from store import Store
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.9.1"
+VERSION = "2.9.2"
 # Version de l'add-on Home Assistant, transmise par son Dockerfile (vide hors add-on).
 ADDON_VERSION = os.environ.get("MONITORING_ADDON_VERSION", "")
 COOKIE = "monitoring_session"
