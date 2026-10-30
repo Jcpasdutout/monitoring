@@ -4,8 +4,8 @@ Surveillez vos boîtes mail, vos API et vos machines depuis une seule page web, 
 
 - **Tableau de bord** : chiffres clés (OK / alertes / erreurs / mails non lus), une carte par sonde avec sa valeur, sa courbe et l'historique de ses dernières vérifications, regroupées par groupe.
 - **Sondes** : ajouter, modifier, dupliquer, désactiver ou supprimer une sonde, et la **tester** avant de l'enregistrer. Cette page est **réservée à l'administrateur** (identifiant + mot de passe) ; le tableau de bord reste consultable sans connexion, sans afficher les adresses ni les URL.
-- **Fond clair, sombre ou transparent** (le même bouton passe de l'un à l'autre ; « transparent », proposé seulement dans Home Assistant, laisse voir le fond du thème HA et suit son mode clair/sombre) et filtre **« Alertes et erreurs »** : vos choix sont mémorisés par le navigateur.
-- **Image de fond** au choix dans les réglages (roue crantée) : sept fonds intégrés (Aurore, Montagnes, Réseau, Océan, Plan, Crépuscule...) en version claire et sombre, ou **votre propre image** (envoyée une fois connecté, stockée dans le dossier des données et visible sur tous vos appareils). Un curseur de voile et l'option « cartes en verre dépoli » gardent le tableau lisible. En mode transparent (Home Assistant), le fond du thème HA reste affiché sauf si vous cochez « Garder l'image en mode transparent ».
+- **Thème Sombre, Clair ou Image** dans le menu roue crantée (plus **Transparent** dans Home Assistant, qui laisse voir le fond du thème HA et suit son mode clair/sombre), et filtre **« Alertes et erreurs »** : vos choix sont mémorisés par le navigateur.
+- En mode **Image**, une galerie apparaît : sept fonds intégrés (Aurore, Montagnes, Réseau, Océan, Plan, Crépuscule...) ou **votre propre image** (envoyée une fois connecté, stockée dans le dossier des données et visible sur tous vos appareils). Recliquer sur l'image choisie bascule entre sa version claire et sa version sombre, et l'interface suit. Un curseur de voile et l'option « cartes en verre dépoli » gardent le tableau lisible.
 
 Types de sondes disponibles :
 

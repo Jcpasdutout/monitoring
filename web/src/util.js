@@ -87,8 +87,8 @@ export function formatValue(v) {
   return Number.isInteger(v) ? v.toLocaleString('fr-FR') : v.toLocaleString('fr-FR', { maximumFractionDigits: 1 })
 }
 
-/** Thèmes proposés par le bouton, dans l'ordre du cycle. « Transparent » n'a de sens que dans HA. */
-export const THEMES = EMBEDDED ? ['light', 'dark', 'transparent'] : ['light', 'dark']
+/** Thèmes proposés dans les réglages. « Image » affiche une image de fond ; « Transparent » n'a de sens que dans HA. */
+export const THEMES = EMBEDDED ? ['dark', 'light', 'image', 'transparent'] : ['dark', 'light', 'image']
 
 /** Lit le fond du thème Home Assistant (page parente, même origine via l'Ingress) : clair ou sombre ? */
 function hostAppearance() {
@@ -117,26 +117,6 @@ function hostAppearance() {
   } catch {
     return fallback // page hôte d'une autre origine : on ne peut pas la lire
   }
-}
-
-/** Thème réellement affiché (lu sur <html>, il suit aussi Home Assistant en mode transparent). */
-export function useRootTheme() {
-  const read = () => {
-    const root = document.documentElement
-    return { dark: root.dataset.theme === 'dark', transparent: root.dataset.bg === 'transparent' }
-  }
-  const [state, setState] = useState(read)
-  useEffect(() => {
-    const update = () => setState((old) => {
-      const now = read()
-      return now.dark === old.dark && now.transparent === old.transparent ? old : now
-    })
-    const o = new MutationObserver(update)
-    o.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-bg'] })
-    update()
-    return () => o.disconnect()
-  }, [])
-  return state
 }
 
 /** Applique le thème choisi sur <html>. En mode transparent, suit le thème HA quand il change. */
