@@ -520,7 +520,7 @@ input:focus, select:focus, textarea:focus {
 .msg-top .msg-from { flex: 1; min-width: 0; }
 
 /* Jetons d'accès */
-.tokens-intro { margin: 0; font-size: 13.5px; }
+.tokens-intro, .backup-intro { margin: 0; font-size: 13.5px; }
 .token-new { display: flex; gap: 10px; align-items: flex-end; }
 .token-new .field { flex: 1; }
 .token-reveal { display: flex; gap: 8px; align-items: center; margin: 6px 0; }

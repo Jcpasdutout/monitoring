@@ -142,7 +142,7 @@ export default function App() {
               settings={{ background, setBackground, variant, setVariant: setBgVariant, veil, setVeil, glass, setGlass }} />
           </Settings>
           {auth?.user && (
-            <Account user={auth.user} notify={notify}
+            <Account user={auth.user} notify={notify} onImported={load}
               onLogout={async () => { await loadAuth(); await load(); notify('Déconnecté') }} />
           )}
         </div>

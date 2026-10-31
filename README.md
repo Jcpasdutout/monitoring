@@ -157,7 +157,9 @@ journalctl -u monitoring -f        # journaux en direct
 
 **Mise à jour** : recopier la nouvelle archive (étape 3), la décompresser et relancer `sh monitoring/deploy/install.sh`. Vos sondes, leur historique et vos réglages sont conservés.
 
-**Sauvegarde** : tout est dans `/var/lib/monitoring/monitoring.db` (ou utilisez les sauvegardes Proxmox du conteneur).
+**Sauvegarde** : dans le menu administrateur (votre identifiant, en haut à droite), **Exporter les sondes** télécharge un fichier JSON avec toutes les sondes et leurs réglages (historique en option). **Importer une sauvegarde** relit ce fichier : ses sondes sont ajoutées aux sondes actuelles, ou les remplacent. Pratique pour passer du conteneur à l'add-on Home Assistant, ou l'inverse. Le fichier contient les mots de passe des sondes en clair : gardez-le en lieu sûr. Le compte administrateur et les jetons d'accès ne sont ni exportés ni modifiés par un import.
+
+Pour une copie complète de la base, tout est dans `/var/lib/monitoring/monitoring.db` (ou utilisez les sauvegardes Proxmox du conteneur).
 
 ## Mot de passe administrateur oublié
 

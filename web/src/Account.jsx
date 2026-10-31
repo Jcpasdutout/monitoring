@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, House, KeyRound, LogOut, UserRound } from 'lucide-react'
+import { ChevronDown, Download, House, KeyRound, LogOut, Upload, UserRound } from 'lucide-react'
 import { api } from './api.js'
 import { Modal } from './components.jsx'
+import { ExportModal, ImportModal } from './Backup.jsx'
 import TokensModal from './Tokens.jsx'
 
 function PasswordModal({ onClose, notify }) {
@@ -47,10 +48,11 @@ function PasswordModal({ onClose, notify }) {
   )
 }
 
-export default function Account({ user, onLogout, notify }) {
+export default function Account({ user, onLogout, notify, onImported }) {
   const [open, setOpen] = useState(false)
   const [changing, setChanging] = useState(false)
   const [tokens, setTokens] = useState(false)
+  const [backup, setBackup] = useState(null) // 'export' | 'import'
   const ref = useRef(null)
 
   useEffect(() => {
@@ -75,11 +77,15 @@ export default function Account({ user, onLogout, notify }) {
         <div className="menu-pop">
           <button onClick={() => { setOpen(false); setChanging(true) }}><KeyRound size={15} />Changer le mot de passe</button>
           <button onClick={() => { setOpen(false); setTokens(true) }}><House size={15} />Jetons d'accès (Home Assistant)</button>
+          <button onClick={() => { setOpen(false); setBackup('export') }}><Download size={15} />Exporter les sondes</button>
+          <button onClick={() => { setOpen(false); setBackup('import') }}><Upload size={15} />Importer une sauvegarde</button>
           <button onClick={logout}><LogOut size={15} />Se déconnecter</button>
         </div>
       )}
       {changing && <PasswordModal onClose={() => setChanging(false)} notify={notify} />}
       {tokens && <TokensModal onClose={() => setTokens(false)} notify={notify} />}
+      {backup === 'export' && <ExportModal onClose={() => setBackup(null)} notify={notify} />}
+      {backup === 'import' && <ImportModal onClose={() => setBackup(null)} notify={notify} onImported={onImported} />}
     </div>
   )
 }
