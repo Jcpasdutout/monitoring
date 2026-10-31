@@ -15,15 +15,16 @@ from concurrent.futures import ThreadPoolExecutor
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
 import checks
+import secretbox
 from store import Store
 
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.10.1"
+VERSION = "2.11.0"
 # Version de l'add-on Home Assistant, transmise par son Dockerfile (vide hors add-on).
 ADDON_VERSION = os.environ.get("MONITORING_ADDON_VERSION", "")
 COOKIE = "monitoring_session"
@@ -33,6 +34,7 @@ BACKGROUND_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 # Fichier de sauvegarde (export / import des sondes).
 BACKUP_FORMAT = "monitoring-backup"
 BACKUP_MAX = 100_000_000
+EXPORT_PASSWORD_MIN = 8
 STATUSES = ("ok", "warning", "error")
 
 
@@ -79,12 +81,31 @@ def validate(body, existing=None):
     }
 
 
-def read_backup(data):
-    """Vérifie un fichier de sauvegarde et renvoie ses sondes, prêtes à être importées."""
+def backup_box(data, password):
+    """Boîte qui déchiffre les mots de passe d'une sauvegarde protégée (None si pas besoin)."""
+    if not any(isinstance(p, dict) and p.get("secret_enc") for p in data["probes"]):
+        return None
+    enc = data.get("encryption")
+    if not isinstance(enc, dict) or enc.get("kdf") != "pbkdf2_sha256":
+        raise ValueError("chiffrement de la sauvegarde inconnu")
+    if not password:
+        raise ValueError("cette sauvegarde protège les mots de passe des sondes : saisis le mot de passe de l'export")
+    try:
+        box, _ = secretbox.export_box(password, str(enc["salt"]), int(enc["rounds"]))
+    except (KeyError, TypeError, ValueError):
+        raise ValueError("chiffrement de la sauvegarde illisible") from None
+    if box.check_value() != enc.get("check"):
+        raise ValueError("mot de passe de l'export incorrect")
+    return box
+
+
+def read_backup(data, password=None):
+    """Vérifie un fichier de sauvegarde et renvoie ses sondes (mots de passe en clair, prêts à rechiffrer)."""
     if not isinstance(data, dict) or data.get("format") != BACKUP_FORMAT:
         raise ValueError("ce fichier n'est pas une sauvegarde de Monitoring")
     if not isinstance(data.get("probes"), list):
         raise ValueError("la sauvegarde ne contient pas de liste de sondes")
+    box = backup_box(data, password)
     probes = []
     for i, raw in enumerate(data["probes"], 1):
         if not isinstance(raw, dict):
@@ -93,7 +114,12 @@ def read_backup(data):
             probe = validate(raw)
         except ValueError as e:
             raise ValueError(f"sonde « {raw.get('name') or i} » : {e}") from None
-        secret = raw.get("secret")
+        secret = raw.get("secret")  # ancien format (2.10) : mot de passe en clair
+        if raw.get("secret_enc") and box:
+            try:
+                secret = box.decrypt(str(raw["secret_enc"]))
+            except secretbox.DecryptError:
+                raise ValueError(f"sonde « {probe['name']} » : mot de passe chiffré illisible") from None
         probe["secret"] = str(secret) if secret else None
         try:
             probe["position"] = int(raw.get("position") or 0)
@@ -129,6 +155,8 @@ class Monitor:
         """Exécute une sonde (enregistrée ou non) et renvoie le résultat."""
         started = time.monotonic()
         try:
+            if probe.get("secret_error"):
+                raise ValueError(probe["secret_error"])
             res = checks.CHECKS[probe["type"]].run(probe["config"], probe.get("secret"))
         except Exception as e:  # une sonde en échec ne doit pas bloquer les autres
             res = {"status": "error", "summary": str(e) or e.__class__.__name__}
@@ -389,14 +417,12 @@ def make_handler(store, monitor, data_dir):
         background_type.unlink(missing_ok=True)
         return {"background": None}
 
-    @route("GET", "/api/backup", admin=True)
-    def export_backup(h):
-        """Télécharge un fichier JSON avec toutes les sondes (mots de passe compris)."""
-        with_history = h.query().get("history") == "1"
+    def send_backup(h, with_history, password=None):
+        probes, encryption = store.export_data(with_history, password)
         payload = {
-            "format": BACKUP_FORMAT, "format_version": 1, "app_version": VERSION,
+            "format": BACKUP_FORMAT, "format_version": 2, "app_version": VERSION,
             "exported_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "with_history": with_history,
-            "probes": store.export_data(with_history),
+            "with_secrets": bool(encryption), "encryption": encryption, "probes": probes,
         }
         data = json.dumps(payload, ensure_ascii=False, indent=1).encode()
         name = time.strftime("monitoring-sauvegarde-%Y%m%d-%H%M.json")
@@ -407,6 +433,20 @@ def make_handler(store, monitor, data_dir):
         h.send_header("Content-Length", str(len(data)))
         h.end_headers()
         h.wfile.write(data)
+
+    @route("GET", "/api/backup", admin=True)
+    def export_backup(h):
+        """Télécharge un fichier JSON avec toutes les sondes, sans leurs mots de passe."""
+        send_backup(h, h.query().get("history") == "1")
+
+    @route("POST", "/api/backup/export", admin=True)
+    def export_backup_protected(h):
+        """Export avec les mots de passe des sondes, chiffrés par un mot de passe d'export."""
+        body = h.body()
+        password = str(body.get("password") or "")
+        if password and len(password) < EXPORT_PASSWORD_MIN:
+            raise ValueError(f"le mot de passe de l'export doit faire au moins {EXPORT_PASSWORD_MIN} caractères")
+        send_backup(h, bool(body.get("history")), password or None)
 
     @route("POST", "/api/backup", admin=True)
     def import_backup(h):
@@ -420,7 +460,7 @@ def make_handler(store, monitor, data_dir):
             data = json.loads(h.rfile.read(length).decode("utf-8-sig"))
         except (UnicodeDecodeError, json.JSONDecodeError):
             raise ValueError("ce fichier n'est pas un JSON valide") from None
-        probes = read_backup(data)
+        probes = read_backup(data, unquote(h.headers.get("X-Backup-Password") or ""))
         replace = h.query().get("mode") == "replace"
         count = store.import_data(probes, replace=replace)
         monitor.trigger()  # relance tout de suite les sondes importées
@@ -602,7 +642,15 @@ def main():
         data_dir.chmod(0o700)  # la base contient les mots de passe
     except OSError:
         pass
-    store = Store(str(data_dir / "monitoring.db"))
+    # Clé qui chiffre les mots de passe des sondes, rangée hors de la base (créée au premier lancement).
+    key_file = Path(os.environ.get("MONITORING_KEY_FILE") or srv.get("key_file") or data_dir / "secret.key")
+    store = Store(str(data_dir / "monitoring.db"), secretbox.SecretBox(secretbox.load_key(key_file)))
+    migrated, unreadable = store.encrypt_plain_secrets()
+    if migrated:
+        print(f"{migrated} mot(s) de passe de sonde chiffré(s) dans la base")
+    if unreadable:
+        print(f"Attention : {unreadable} mot(s) de passe illisible(s) avec la clé {key_file} "
+              "(base venant d'une autre installation ?) : ressaisis-les dans les sondes concernées.")
     import_legacy(store, config)
     if "--reset-admin" in sys.argv:
         store.delete_users()

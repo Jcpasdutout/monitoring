@@ -8,6 +8,8 @@ import sqlite3
 import threading
 import time
 
+from secretbox import DecryptError, SecretBox, export_box, is_encrypted
+
 HISTORY_KEEP = 1000  # résultats conservés par sonde
 SESSION_DAYS = 30
 PBKDF2_ROUNDS = 300_000
@@ -77,12 +79,15 @@ def check_password(password, stored):
 
 
 class Store:
-    def __init__(self, path):
+    def __init__(self, path, box):
+        # Mots de passe des sondes chiffrés avec la clé de l'installation (voir secretbox.py).
+        self.box = box
         new = not os.path.exists(path)
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.execute("PRAGMA journal_mode = WAL")
+        self.db.execute("PRAGMA secure_delete = ON")  # efface vraiment les anciennes valeurs
         self.db.executescript(SCHEMA)
         self.lock = threading.Lock()
         if new:
@@ -91,8 +96,35 @@ class Store:
             except OSError:
                 pass
 
-    @staticmethod
-    def _probe(row, with_secret=False):
+    def _seal(self, secret):
+        return self.box.encrypt(secret) if secret else None
+
+    def _open(self, stored):
+        """Déchiffre un mot de passe ; None et un message d'erreur s'il est illisible."""
+        try:
+            return self.box.decrypt(stored), None
+        except DecryptError as e:
+            return None, f"Mot de passe illisible ({e}) : ressaisis-le dans la sonde"
+
+    def encrypt_plain_secrets(self):
+        """Chiffre les mots de passe encore en clair. Renvoie (chiffrés, illisibles)."""
+        migrated = unreadable = 0
+        with self.lock, self.db:
+            for row in self.db.execute("SELECT id, secret FROM probes WHERE secret IS NOT NULL AND secret != ''").fetchall():
+                if is_encrypted(row["secret"]):
+                    unreadable += self._open(row["secret"])[1] is not None
+                else:
+                    self.db.execute("UPDATE probes SET secret = ? WHERE id = ?",
+                                    (self._seal(row["secret"]), row["id"]))
+                    migrated += 1
+        if migrated:
+            # Les anciennes pages de la base peuvent encore contenir le texte en clair : on les efface.
+            with self.lock:
+                self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                self.db.execute("VACUUM")
+        return migrated, unreadable
+
+    def _probe(self, row, with_secret=False):
         p = {
             "id": row["id"], "name": row["name"], "type": row["type"], "group": row["grp"],
             "enabled": bool(row["enabled"]), "interval": row["interval_s"],
@@ -100,7 +132,9 @@ class Store:
             "position": row["position"],
         }
         if with_secret:
-            p["secret"] = row["secret"]
+            p["secret"], error = self._open(row["secret"])
+            if error:
+                p["secret_error"] = error
         return p
 
     def list_probes(self, with_secret=False):
@@ -119,7 +153,7 @@ class Store:
                 "INSERT INTO probes (name, type, grp, enabled, interval_s, config, secret, created_at)"
                 " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (p["name"], p["type"], p["group"], int(p["enabled"]), p["interval"],
-                 json.dumps(p["config"]), p.get("secret") or None, time.time()))
+                 json.dumps(p["config"]), self._seal(p.get("secret")), time.time()))
             return cur.lastrowid
 
     def update_probe(self, pid, p, secret=None, clear_secret=False):
@@ -129,7 +163,7 @@ class Store:
                 (p["name"], p["type"], p["group"], int(p["enabled"]), p["interval"],
                  json.dumps(p["config"]), pid))
             if secret or clear_secret:
-                self.db.execute("UPDATE probes SET secret=? WHERE id=?", (secret or None, pid))
+                self.db.execute("UPDATE probes SET secret=? WHERE id=?", (self._seal(secret), pid))
 
     def delete_probe(self, pid):
         with self.lock, self.db:
@@ -261,14 +295,26 @@ class Store:
 
     # --- Sauvegarde : export et import des sondes (et de leur historique) ---
 
-    def export_data(self, with_history=False):
-        """Sondes (mots de passe compris) et, au choix, leur historique. Ni comptes ni jetons."""
+    def export_data(self, with_history=False, password=None):
+        """Sondes et, au choix, leur historique. Ni comptes ni jetons.
+
+        Avec un mot de passe d'export, les mots de passe des sondes sont rechiffrés avec une clé
+        dérivée de celui-ci (lisible par une autre installation) ; sans, ils ne sont pas exportés.
+        Renvoie (sondes, description du chiffrement ou None).
+        """
+        box, encryption = export_box(password) if password else (None, None)
+        if encryption:
+            encryption["check"] = box.check_value()
         with self.lock:
             rows = self.db.execute("SELECT * FROM probes ORDER BY grp, position, id").fetchall()
             probes = []
             for r in rows:
                 p = self._probe(r, with_secret=True)
+                secret = p.pop("secret", None)
+                p.pop("secret_error", None)
                 del p["has_secret"]
+                if box and secret:
+                    p["secret_enc"] = box.encrypt(secret)
                 if with_history:
                     p["history"] = [
                         {**dict(h), "details": json.loads(h["details"] or "{}")}
@@ -277,7 +323,7 @@ class Store:
                             " WHERE probe_id = ? ORDER BY ts", (r["id"],))]
                 del p["id"]
                 probes.append(p)
-        return probes
+        return probes, encryption
 
     def import_data(self, probes, replace=False):
         """Ajoute des sondes déjà validées ; replace=True supprime d'abord les sondes existantes.
@@ -294,7 +340,7 @@ class Store:
                     "INSERT INTO probes (name, type, grp, enabled, interval_s, config, secret, position, created_at)"
                     " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (p["name"], p["type"], p["group"], int(p["enabled"]), p["interval"],
-                     json.dumps(p["config"]), p.get("secret") or None, p.get("position", 0), now))
+                     json.dumps(p["config"]), self._seal(p.get("secret")), p.get("position", 0), now))
                 history = p.get("history") or []
                 self.db.executemany(
                     "INSERT INTO results (probe_id, ts, status, value, duration_ms, summary, details)"
