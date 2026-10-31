@@ -1,9 +1,9 @@
-async function request(method, url, body) {
+async function request(method, url, body, extraHeaders = {}) {
   // Un fichier (Blob) est envoyé tel quel, le reste en JSON.
   const raw = body instanceof Blob
   const res = await fetch(url, {
     method,
-    headers: raw ? { 'Content-Type': body.type } : body ? { 'Content-Type': 'application/json' } : {},
+    headers: { ...(raw ? { 'Content-Type': body.type } : body ? { 'Content-Type': 'application/json' } : {}), ...extraHeaders },
     body: raw ? body : body ? JSON.stringify(body) : undefined,
     cache: 'no-store',
   })
@@ -37,7 +37,20 @@ export const api = {
   removeToken: (id) => request('DELETE', `api/tokens/${id}`),
   uploadBackground: (blob) => request('PUT', 'api/background', blob),
   removeBackground: () => request('DELETE', 'api/background'),
-  exportUrl: (history) => `api/backup${history ? '?history=1' : ''}`,
-  importBackup: (file, replace) => request('POST', `api/backup${replace ? '?mode=replace' : ''}`,
-    new Blob([file], { type: 'application/json' })),
+  exportBackup: async (history, password) => {
+    const res = await fetch('api/backup/export', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history, password }), cache: 'no-store',
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 401) window.dispatchEvent(new Event('monitoring:unauthorized'))
+      throw new Error(data.error || `Erreur ${res.status}`)
+    }
+    const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1]
+      || 'monitoring-sauvegarde.json'
+    return { blob: await res.blob(), name }
+  },
+  importBackup: (file, replace, password) => request('POST', `api/backup${replace ? '?mode=replace' : ''}`,
+    new Blob([file], { type: 'application/json' }), password ? { 'X-Backup-Password': encodeURIComponent(password) } : {}),
 }

@@ -42,7 +42,7 @@ navigateur ──HTTP──▶ server.py ── API /api/... ──▶ store.py 
 
 - **Serveur** : Python 3.11+, **bibliothèque standard uniquement** (aucune dépendance à installer).
 - **Interface** : React, déjà compilée dans `static/`. **Node n'est pas nécessaire** pour l'utiliser ; il ne sert que si vous voulez modifier l'interface (voir plus bas).
-- **Données** : `data/monitoring.db` (base SQLite). Les mots de passe des sondes y sont stockés, ne sont jamais renvoyés à la page, et le fichier n'est lisible que par le service.
+- **Données** : `data/monitoring.db` (base SQLite). Les mots de passe des sondes y sont **chiffrés** avec une clé générée automatiquement au premier lancement et rangée à part (`data/secret.key`, ou `/etc/monitoring/secret.key` dans le conteneur, `/data/secret.key` dans l'add-on). Ils ne sont jamais renvoyés à la page, et ces fichiers ne sont lisibles que par le service. Les mots de passe encore en clair d'une version précédente sont chiffrés automatiquement au démarrage.
 - **Extensible** : un nouveau type de sonde = un module dans `checks/` qui décrit ses champs. Le formulaire de l'interface se construit tout seul à partir de cette description.
 
 ## Fichiers
@@ -157,9 +157,9 @@ journalctl -u monitoring -f        # journaux en direct
 
 **Mise à jour** : recopier la nouvelle archive (étape 3), la décompresser et relancer `sh monitoring/deploy/install.sh`. Vos sondes, leur historique et vos réglages sont conservés.
 
-**Sauvegarde** : dans le menu administrateur (votre identifiant, en haut à droite), **Exporter les sondes** télécharge un fichier JSON avec toutes les sondes et leurs réglages (historique en option). **Importer une sauvegarde** relit ce fichier : ses sondes sont ajoutées aux sondes actuelles, ou les remplacent. Pratique pour passer du conteneur à l'add-on Home Assistant, ou l'inverse. Le fichier contient les mots de passe des sondes en clair : gardez-le en lieu sûr. Le compte administrateur et les jetons d'accès ne sont ni exportés ni modifiés par un import.
+**Sauvegarde** : dans le menu administrateur (votre identifiant, en haut à droite), **Exporter les sondes** télécharge un fichier JSON avec toutes les sondes et leurs réglages (historique en option). **Importer une sauvegarde** relit ce fichier : ses sondes sont ajoutées aux sondes actuelles, ou les remplacent. Pratique pour passer du conteneur à l'add-on Home Assistant, ou l'inverse. Pour y inclure les mots de passe des sondes, choisissez un **mot de passe d'export** : ils sont chiffrés avec lui dans le fichier, et l'import le redemande (sans lui, il faudra les ressaisir). Les fichiers exportés par la 2.10, où ils étaient en clair, s'importent toujours : supprimez-les ensuite. Le compte administrateur et les jetons d'accès ne sont ni exportés ni modifiés par un import.
 
-Pour une copie complète de la base, tout est dans `/var/lib/monitoring/monitoring.db` (ou utilisez les sauvegardes Proxmox du conteneur).
+Pour une copie complète de la base, tout est dans `/var/lib/monitoring/monitoring.db`, **avec** la clé `/etc/monitoring/secret.key` : sans elle, les mots de passe des sondes de cette base sont illisibles (ou utilisez les sauvegardes Proxmox du conteneur, qui contiennent les deux).
 
 ## Mot de passe administrateur oublié
 

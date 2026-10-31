@@ -5,3 +5,4 @@
 host = "127.0.0.1"       # 0.0.0.0 pour y accéder depuis les autres machines du réseau
 port = 8080
 # data_dir = "data"      # dossier de la base SQLite (sondes, mots de passe, historique)
+# key_file = "data/secret.key"  # clé de chiffrement des mots de passe des sondes (créée au premier lancement)
