@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from http.cookies import SimpleCookie
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import checks
 from store import Store
@@ -22,13 +23,17 @@ from store import Store
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 MIN_INTERVAL = 10
-VERSION = "2.9.2"
+VERSION = "2.10.0"
 # Version de l'add-on Home Assistant, transmise par son Dockerfile (vide hors add-on).
 ADDON_VERSION = os.environ.get("MONITORING_ADDON_VERSION", "")
 COOKIE = "monitoring_session"
 # Image de fond personnelle envoyée depuis l'interface (stockée dans le dossier des données).
 BACKGROUND_MAX = 10_000_000
 BACKGROUND_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+# Fichier de sauvegarde (export / import des sondes).
+BACKUP_FORMAT = "monitoring-backup"
+BACKUP_MAX = 100_000_000
+STATUSES = ("ok", "warning", "error")
 
 
 def load_env_file(path):
@@ -72,6 +77,42 @@ def validate(body, existing=None):
         "interval": max(MIN_INTERVAL, interval),
         "config": checks.normalize(type_, body.get("config") or {}),
     }
+
+
+def read_backup(data):
+    """Vérifie un fichier de sauvegarde et renvoie ses sondes, prêtes à être importées."""
+    if not isinstance(data, dict) or data.get("format") != BACKUP_FORMAT:
+        raise ValueError("ce fichier n'est pas une sauvegarde de Monitoring")
+    if not isinstance(data.get("probes"), list):
+        raise ValueError("la sauvegarde ne contient pas de liste de sondes")
+    probes = []
+    for i, raw in enumerate(data["probes"], 1):
+        if not isinstance(raw, dict):
+            raise ValueError(f"sonde n°{i} illisible")
+        try:
+            probe = validate(raw)
+        except ValueError as e:
+            raise ValueError(f"sonde « {raw.get('name') or i} » : {e}") from None
+        secret = raw.get("secret")
+        probe["secret"] = str(secret) if secret else None
+        try:
+            probe["position"] = int(raw.get("position") or 0)
+        except (TypeError, ValueError):
+            probe["position"] = 0
+        history = []
+        for h in raw.get("history") or []:
+            if (isinstance(h, dict) and isinstance(h.get("ts"), (int, float))
+                    and h.get("status") in STATUSES):
+                history.append({
+                    "ts": float(h["ts"]), "status": h["status"],
+                    "value": h["value"] if isinstance(h.get("value"), (int, float)) else None,
+                    "duration_ms": h["duration_ms"] if isinstance(h.get("duration_ms"), int) else None,
+                    "summary": str(h["summary"]) if h.get("summary") is not None else None,
+                    "details": h["details"] if isinstance(h.get("details"), dict) else {},
+                })
+        probe["history"] = sorted(history, key=lambda h: h["ts"])
+        probes.append(probe)
+    return probes
 
 
 class Monitor:
@@ -348,6 +389,44 @@ def make_handler(store, monitor, data_dir):
         background_type.unlink(missing_ok=True)
         return {"background": None}
 
+    @route("GET", "/api/backup", admin=True)
+    def export_backup(h):
+        """Télécharge un fichier JSON avec toutes les sondes (mots de passe compris)."""
+        with_history = h.query().get("history") == "1"
+        payload = {
+            "format": BACKUP_FORMAT, "format_version": 1, "app_version": VERSION,
+            "exported_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "with_history": with_history,
+            "probes": store.export_data(with_history),
+        }
+        data = json.dumps(payload, ensure_ascii=False, indent=1).encode()
+        name = time.strftime("monitoring-sauvegarde-%Y%m%d-%H%M.json")
+        h.send_response(200)
+        h.send_header("Content-Type", "application/json; charset=utf-8")
+        h.send_header("Content-Disposition", f'attachment; filename="{name}"')
+        h.send_header("Cache-Control", "no-store")
+        h.send_header("Content-Length", str(len(data)))
+        h.end_headers()
+        h.wfile.write(data)
+
+    @route("POST", "/api/backup", admin=True)
+    def import_backup(h):
+        """Importe un fichier de sauvegarde : ajoute ses sondes, ou remplace toutes les sondes (mode=replace)."""
+        length = int(h.headers.get("Content-Length") or 0)
+        if not length:
+            raise ValueError("fichier vide")
+        if length > BACKUP_MAX:
+            raise ValueError("fichier trop volumineux (100 Mo maximum)")
+        try:
+            data = json.loads(h.rfile.read(length).decode("utf-8-sig"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            raise ValueError("ce fichier n'est pas un JSON valide") from None
+        probes = read_backup(data)
+        replace = h.query().get("mode") == "replace"
+        count = store.import_data(probes, replace=replace)
+        monitor.trigger()  # relance tout de suite les sondes importées
+        return {"imported": count, "replaced": replace,
+                "history": sum(len(p["history"]) for p in probes)}
+
     @route("GET", "/api/tokens", admin=True)
     def list_tokens(h):
         return store.list_tokens()
@@ -382,6 +461,9 @@ def make_handler(store, monitor, data_dir):
             self.new_token = store.create_session(uid)
             self.extra_headers.append(("Set-Cookie", f"{COOKIE}={self.new_token}; Path={self.cookie_path()}; "
                                        f"Max-Age={30 * 86400}; HttpOnly; SameSite=Strict"))
+
+        def query(self):
+            return {k: v[-1] for k, v in parse_qs(urlsplit(self.path).query).items()}
 
         def body(self):
             length = int(self.headers.get("Content-Length") or 0)

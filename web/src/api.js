@@ -37,4 +37,7 @@ export const api = {
   removeToken: (id) => request('DELETE', `api/tokens/${id}`),
   uploadBackground: (blob) => request('PUT', 'api/background', blob),
   removeBackground: () => request('DELETE', 'api/background'),
+  exportUrl: (history) => `api/backup${history ? '?history=1' : ''}`,
+  importBackup: (file, replace) => request('POST', `api/backup${replace ? '?mode=replace' : ''}`,
+    new Blob([file], { type: 'application/json' })),
 }

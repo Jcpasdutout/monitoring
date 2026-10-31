@@ -258,3 +258,48 @@ class Store:
             if not row["last_used"] or row["last_used"] < time.time() - 60:
                 self.db.execute("UPDATE api_tokens SET last_used = ? WHERE id = ?", (time.time(), row["id"]))
         return {"id": row["id"], "name": row["name"]}
+
+    # --- Sauvegarde : export et import des sondes (et de leur historique) ---
+
+    def export_data(self, with_history=False):
+        """Sondes (mots de passe compris) et, au choix, leur historique. Ni comptes ni jetons."""
+        with self.lock:
+            rows = self.db.execute("SELECT * FROM probes ORDER BY grp, position, id").fetchall()
+            probes = []
+            for r in rows:
+                p = self._probe(r, with_secret=True)
+                del p["has_secret"]
+                if with_history:
+                    p["history"] = [
+                        {**dict(h), "details": json.loads(h["details"] or "{}")}
+                        for h in self.db.execute(
+                            "SELECT ts, status, value, duration_ms, summary, details FROM results"
+                            " WHERE probe_id = ? ORDER BY ts", (r["id"],))]
+                del p["id"]
+                probes.append(p)
+        return probes
+
+    def import_data(self, probes, replace=False):
+        """Ajoute des sondes déjà validées ; replace=True supprime d'abord les sondes existantes.
+
+        Tout se fait en une seule transaction : en cas d'erreur, la base reste inchangée.
+        """
+        with self.lock, self.db:
+            if replace:
+                self.db.execute("DELETE FROM results")
+                self.db.execute("DELETE FROM probes")
+            now = time.time()
+            for p in probes:
+                cur = self.db.execute(
+                    "INSERT INTO probes (name, type, grp, enabled, interval_s, config, secret, position, created_at)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (p["name"], p["type"], p["group"], int(p["enabled"]), p["interval"],
+                     json.dumps(p["config"]), p.get("secret") or None, p.get("position", 0), now))
+                history = p.get("history") or []
+                self.db.executemany(
+                    "INSERT INTO results (probe_id, ts, status, value, duration_ms, summary, details)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [(cur.lastrowid, h["ts"], h["status"], h.get("value"), h.get("duration_ms"),
+                      h.get("summary"), json.dumps(h.get("details") or {}, ensure_ascii=False))
+                     for h in history[-HISTORY_KEEP:]])
+        return len(probes)
