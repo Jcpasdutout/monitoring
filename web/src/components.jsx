@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { STATUS_LABEL } from './util.js'
 
@@ -53,7 +54,9 @@ export function Modal({ title, onClose, children, footer, wide }) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-  return (
+  // Rendue à la racine de la page : dans Home Assistant, le menu flottant (flou d'arrière-plan)
+  // enfermerait sinon la fenêtre dans sa petite zone en bas à droite.
+  return createPortal(
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className={`modal ${wide ? 'modal-wide' : ''}`} role="dialog" aria-modal="true">
         <header className="modal-head">
@@ -63,7 +66,8 @@ export function Modal({ title, onClose, children, footer, wide }) {
         <div className="modal-body">{children}</div>
         {footer && <footer className="modal-foot">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
